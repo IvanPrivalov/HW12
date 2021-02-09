@@ -367,5 +367,5 @@ restorecon reset /etc/named/dynamic/named.ddns.lab.view1 context system_u:object
 
 Видим, что ошибки нет.
 
-![Image 7](https://github.com/IvanPrivalov/HW12/blob/master/screenshots/7.png)
+![Image 7](https://github.com/IvanPrivalov/HW12/blob/master/screenshots/7.PNG)
 
