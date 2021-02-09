@@ -26,7 +26,7 @@ sudo -i
 
 Изменим порт nginx на 5080, перезапусти nginx.service, он не запустился:
 
-![Image 1](https://github.com/IvanPrivalov/HW12/screenshots/1.png)
+![Image 1](https://github.com/IvanPrivalov/HW12/blob/master/screenshots/1.PNG)
 
 С помощью утилиты sealert сгенерируем отчет об ошибках из лога SELinux:
 
@@ -131,13 +131,13 @@ setsebool -P nis_enabled 1
 
 После этого перезапустим nginx и проверим его статус:
 
-![Image 2](https://github.com/IvanPrivalov/HW12/screenshots/2.png)
+![Image 2](https://github.com/IvanPrivalov/HW12/blob/master/screenshots/2.PNG)
 
 ### 1.2 Добавление нестандартного порта в имеющийся тип
 
 Вернем значение переключателя nis_enabled, перезапустим nginx.service и проверим, что он не запустился:
 
-![Image 3](https://github.com/IvanPrivalov/HW12/screenshots/3.png)
+![Image 3](https://github.com/IvanPrivalov/HW12/blob/master/screenshots/3.PNG)
 
 Выведем список разрешенных SELinux'ом портов для типа http_port_t:
 
@@ -156,13 +156,13 @@ http_port_t                    tcp      5080, 80, 81, 443, 488, 8008, 8009, 8443
 
 Рестарт nginx.service и проверим его доступность:
 
-![Image 4](https://github.com/IvanPrivalov/HW12/screenshots/4.png)
+![Image 4](https://github.com/IvanPrivalov/HW12/blob/master/screenshots/4.PNG)
 
 ### 1.3 Формирование и установка модуля SELinux
 
 Удалим порт из разрешенных и перезапустим сервис nginx:
 
-![Image 5](https://github.com/IvanPrivalov/HW12/screenshots/5.png)
+![Image 5](https://github.com/IvanPrivalov/HW12/blob/master/screenshots/5.PNG)
 
 Для формирования и установки модуля SELinux воспользуемся утилитой audit2allow, перенаправив на её stdin лог SELinux:
 
@@ -182,7 +182,7 @@ semodule -i my_nginx_service.pp
 
 Перезапускаем nginx и проверяем:
 
-![Image 6](https://github.com/IvanPrivalov/HW12/screenshots/6.png)
+![Image 6](https://github.com/IvanPrivalov/HW12/blob/master/screenshots/6.PNG)
 
 ## 2. Обеспечить работоспособность приложения при включенном selinux.
 
@@ -337,4 +337,35 @@ Hash: isc-worker0000,named_t,etc_t,file,create
 ```
 
 Смотрим тип файла в его контексте безопасности:
+
+```shell
+[root@ns01 ~]# ll -Z /etc/named/dynamic/named.ddns.lab.view1
+-rw-rw----. named named system_u:object_r:etc_t:s0       /etc/named/dynamic/named.ddns.lab.view1
+```
+
+Видим, что тип - etc_t, по умолчанию для динамических зон используется директория /var/named/dynamic/, файлы в которой наследуют тип named_cache_t. Изменим тип в контексте для директории /etc/named/dynamic/:
+
+```shell
+[root@ns01 ~]# semanage fcontext -a -t named_cache_t '/etc/named/dynamic(/.*)?'
+[root@ns01 ~]# restorecon -R -v /etc/named/dynamic/
+restorecon reset /etc/named/dynamic context unconfined_u:object_r:etc_t:s0->unconfined_u:object_r:named_cache_t:s0
+restorecon reset /etc/named/dynamic/named.ddns.lab context system_u:object_r:etc_t:s0->system_u:object_r:named_cache_t:s0
+restorecon reset /etc/named/dynamic/named.ddns.lab.view1 context system_u:object_r:etc_t:s0->system_u:object_r:named_cache_t:s0
+```
+
+Повторим попытку изменения зоны ddns.lab:
+
+```shell
+[vagrant@client ~]$ nsupdate -k /etc/named.zonetransfer.key
+> server 192.168.50.10
+> zone ddns.lab
+> update add www.ddns.lab. 60 A 192.168.50.15
+> send
+> 
+> quit
+```
+
+Видим, что ошибки нет.
+
+![Image 7](https://github.com/IvanPrivalov/HW12/blob/master/screenshots/7.PNG)
 
